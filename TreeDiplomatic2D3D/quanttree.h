@@ -23,10 +23,10 @@ Queue *QueueCreate(pixel_t imgsize, int numQTZLEVELS);
 void FillPixelsInQueue(Queue *hq, pixel_t *numpixelsperlevel, int numQTZLEVELS);
 void QueueDelete(Queue *hq);
 
-int GetNeighbors(pixel_t p, pixel_t x, pixel_t y, pixel_t z, pixel_t *neighbors, pixel_t lwb, pixel_t upb, GeneralThreadData *threadData);
+int GetNeighbors(pixel_t p, pixel_t x, pixel_t y, pixel_t z, pixel_t *neighbors, pixel_t lwb, pixel_t upb, ImageProperties img);
 int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea, MaxNode *nodes, int *gvalues, GeneralThreadData *threadData);
-void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues);
-void Fuse(int self, int i, MaxNode *node, int *gvalues);
+void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues, greyval_t *gval);
+void Fuse(int self, int i, MaxNode *node, int *gvalues, ImageProperties img, greyval_t *gval);
 void MakeThreadData(int numthreads, GeneralThreadData *data);
 void FreeThreadQueues(GeneralThreadData *data, int nthreads);
 void BuildQuantizedTree(GeneralThreadData *thdata, int nthreads);

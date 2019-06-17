@@ -61,6 +61,7 @@ int CreateQuantizedImage(int inputQTZLEVELS, GeneralThreadData *threadData)
     pixel_t expectedNumPixelPerQtzLev = numRemPixels/(inputQTZLEVELS);
     pixel_t *pxStartPosition = threadData->pxStartPosition;
     pixel_t *pxEndPosition = threadData-> pxEndPosition;
+    pixel_t *SORTED = threadData->SORTED;
     int *gval_qu = threadData->gval_qu;
     greyval_t *gval = threadData->gval;
     int currentQtzLev = 0;
@@ -111,6 +112,7 @@ int WorkOutBoundaries(int inputQTZLEVELS, GeneralThreadData *threadData)
     pixel_t expectedNumPixelPerQtzLev = numRemPixels/(inputQTZLEVELS);
     pixel_t *pxStartPosition = threadData->pxStartPosition;
     pixel_t *pxEndPosition = threadData-> pxEndPosition;
+    pixel_t *SORTED = threadData->SORTED;
     
     greyval_t *gval = threadData->gval;
     //printf("Optimal number of pixels per thread = %ld\n", expectedNumPixelPerQtzLev);
@@ -154,6 +156,7 @@ void *wqi(void *arg)
     int self = threfdata->self;
     pixel_t *pxStartPosition = threfdata->pxStartPosition;
     pixel_t *pxEndPosition = threfdata->pxEndPosition;
+    pixel_t *SORTED = threfdata->SORTED;
     int *gval_qu = threfdata->gval_qu;
     
     pixel_t i;

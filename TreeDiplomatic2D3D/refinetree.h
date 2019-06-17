@@ -19,7 +19,7 @@ void FreeQuantized(GeneralThreadData *data, int numthreads);
 void *rnc(void *arg);
 
 //int GetNeighborsBerger(pixel_t p, pixel_t *neighbors);
-int GetNeighborsBerger(pixel_t p, pixel_t *neighbors, pixel_t lwb, pixel_t upb);
+int GetNeighborsBerger(pixel_t p, pixel_t *neighbors, pixel_t lwb, pixel_t upb, ImageProperties img);
 
 pixel_t FINDROOT(pixel_t p);
 #endif

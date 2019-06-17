@@ -18,6 +18,7 @@
 #define false 0
 #define true  1
 #define MAXTHREADS 128
+#define NUMBUCKETS 65536
 #define CONNECTIVITY 6 // keep it at 6 so it is ready for both 2D and 3D. Code realised if it dealing with a 2D or 3D image.
 
 /*********************************************/
@@ -48,7 +49,6 @@ int nthreadsRef; // number of threads of the NajCou refinement, equals to the nu
 
 long width, height, depth, size, size2D;  /* precondition: width <= size/nthreads */
 
-greyval_t *gval;
 greyval_t *outRef;
 
 short bitsPerPixel;
@@ -77,6 +77,7 @@ typedef struct GeneralThreadData
     pixel_t *pxStartPosition;
     pixel_t *pxEndPosition;
     ImageProperties img;
+    pixel_t *SORTED;
 } GeneralThreadData;
 
 typedef struct MaxNode
@@ -89,9 +90,7 @@ MaxNode *node_qu;
 bool *reached_qu;
 
 // Used for parallel counting sort
-pixel_t *SORTED;
-pixel_t *SORTEDRS[2];
-unsigned int NUMBUCKETS;
+
 
 
 

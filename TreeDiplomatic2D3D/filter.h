@@ -8,7 +8,7 @@
     int self;
 } ThreadFiltData;*/
 
-void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval);
+void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval, long size);
 void Filter(GeneralThreadData *threadData, double lambda);
 void RunFilter(GeneralThreadData *threadData, int nthreads);
 void ParallelFilter(int nthreads, GeneralThreadData *threadData);

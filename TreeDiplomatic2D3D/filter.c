@@ -2,7 +2,7 @@
 #include "stdlib.h"
 #include "filter.h"
 
-void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval)
+void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval, long size)
 {
 	pixel_t v, u, w, parent, lwb, upb;
     greyval_t val;
@@ -64,6 +64,7 @@ void *runfilt(void *arg)
 	GeneralThreadData *thfiltdata = (GeneralThreadData *) arg;
         double lambda = thfiltdata->lambda;
     int self = thfiltdata->self;
+    greyval_t *gval = thfiltdata->gval;
     greyval_t *out = outRef;
     
     pixel_t v, u, w, parent, lwb, upb;
@@ -162,6 +163,6 @@ void ParallelFilter(int nthreads, GeneralThreadData *threadData)
 
 void Filter(GeneralThreadData *threadData, double lambda)
 {	
-	RefTreeAreaFilterBerger(lambda, outRef, threadData->gval);
+	RefTreeAreaFilterBerger(lambda, outRef, threadData->gval, threadData->img.size);
 	//ParallelFilter(nthreadsRef);
 }

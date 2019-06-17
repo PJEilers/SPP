@@ -12,11 +12,6 @@ char *getExtension(const char *filename)
     return (char *)dot + 1;
 }
 
-void InitBuckets()
-{
-		NUMBUCKETS = 65536;
-}
-
 void printTimings()
 {
 	musec = (float)(end_sort - start_sort)/((float)tickspersec);
@@ -43,7 +38,7 @@ int main (int argc, char *argv[])
 {
     char *imgfname, *outfname = "out.fits";
     is3D = false;
-    bitsPerPixel = 8; int r = 0;
+    bitsPerPixel = 8; 
     tickspersec = sysconf(_SC_CLK_TCK);  
 
     if (argc<7)
@@ -62,9 +57,8 @@ int main (int argc, char *argv[])
     is3D = (atoi(argv[6]));
     width = height = depth = size = size2D = 0;
     ImageProperties img;	
-
-    {if(!ReadFITS3D(imgfname, &img)){printf("fits image failed to read\n"); return(-1);}}
-
+    greyval_t *gval = ReadFITS3D(imgfname, &img);
+   // {if(!ReadFITS3D(imgfname, &img){printf("fits image failed to read\n"); return(-1);}}
     size = width*height*depth;
     if(is3D)
       size2D = width*height;
@@ -93,11 +87,14 @@ int main (int argc, char *argv[])
     //printf("Min=%d. Max=%d.\n", hmin, hmax);
     
 	/**************************************************************/ 
-	printf("/*** Sort the pixels ***/\n");  
-    InitBuckets();        
+    printf("/*** Sort the pixels ***/\n");  
+     
     start_sort = times(&tstruct);    
     // run radix sort
-    RunRadixSortUnsigned(abs((int)ceil((double)bitsPerPixel/(16))));	
+    pixel_t *SORTED = RunRadixSortUnsigned(abs((int)ceil((double)bitsPerPixel/(16))), img, gval);	
+    for(i = 0; i < nthreads; i++) {
+       threadData[i].SORTED = SORTED;
+    }
 	end_sort = times(&tstruct);  
     
     /******************************************************************/     
@@ -137,8 +134,7 @@ int main (int argc, char *argv[])
     printf("Image written to '%s'\n", outfname);
 	
     printf("\n");
-    free(gval);
-    free(SORTED);
+    
 	free(zpar);
 	free(node_qu);
 	free(node_ref);

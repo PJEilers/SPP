@@ -158,11 +158,11 @@ void QueueDelete(Queue *hq)
 
 /****************** Construction of local tree using algorithm flood****************************/
 int GetNeighbors(pixel_t p, pixel_t x, pixel_t y, pixel_t z, 
-		 pixel_t *neighbors, pixel_t lwb, pixel_t upb, GeneralThreadData *threadData)
+		 pixel_t *neighbors, pixel_t lwb, pixel_t upb, ImageProperties img)
 {
    int n=0;
-   long width = threadData->img.width;
-   long size2D = threadData->img.size2D;
+   long width = img.width;
+   long size2D = img.size2D;
    x = p % width;
    if (x<(width-1))       neighbors[n++] = p+1;
    if (y>0)               neighbors[n++] = p-width; // never exec in 2D
@@ -184,8 +184,8 @@ int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea
     pixel_t neighbors[CONNECTIVITY];
     int numQTZLEVELS = threadData->numQTZLEVELS;
     long width = threadData->img.width;
-    long height = threadData->img.height;
     long size2D = threadData->img.size2D;
+    greyval_t *gval = threadData->gval;
     
     long area = *thisarea;
     long childarea;
@@ -204,7 +204,7 @@ int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea
         x = p % width; 
         y = (p % size2D) / width;
         z = p / size2D;
-        numneighbors = GetNeighbors(p, x, y, z, neighbors, lwb/size2D, upb/size2D, threadData);
+        numneighbors = GetNeighbors(p, x, y, z, neighbors, lwb/size2D, upb/size2D, threadData->img);
         for (i=0; i<numneighbors; i++)
         {
             q = neighbors[i];
@@ -262,7 +262,7 @@ int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea
 
 /************************ Merge trees *************************************/
 
-void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues)
+void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues, greyval_t *gval)
 {
     long area = 0, area1 = 0;
     
@@ -310,11 +310,14 @@ void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues)
 }
 
 
-void Fuse(int self, int i, MaxNode *node, int *gvalues) /* fuse regions [LWB(self), UPB(self+i-1)) and  [LWB(self+i), UPB(self+2i-1)) vertically */
+void Fuse(int self, int i, MaxNode *node, int *gvalues, ImageProperties img, greyval_t *gval) /* fuse regions [LWB(self), UPB(self+i-1)) and  [LWB(self+i), UPB(self+2i-1)) vertically */
 {
     pixel_t p, q, x, y;
 
     greyval_t prevmin, curmin;
+    long width = img.width;
+    long height = img.height;
+    long size2D = img.size2D;
 
     /* get the horizontal boundary */
 
@@ -328,7 +331,7 @@ void Fuse(int self, int i, MaxNode *node, int *gvalues) /* fuse regions [LWB(sel
 
     for ( y = 0 ; y < height ; y++ )
     {
-        Connect(p, q, node, gvalues);
+        Connect(p, q, node, gvalues, gval);
         //prevmin = MIN(gvalues[p], gvalues[q]);
         prevmin = MIN(gval[p], gval[q]);
         
@@ -340,7 +343,7 @@ void Fuse(int self, int i, MaxNode *node, int *gvalues) /* fuse regions [LWB(sel
             curmin = MIN(gval[p], gval[q]);
 			if (curmin > prevmin)
             {
-                Connect(p, q, node, gvalues);
+                Connect(p, q, node, gvalues, gval);
             }
             prevmin = curmin;
         }
@@ -372,10 +375,12 @@ void *ccaf(void *arg)
     int numQTZLEVELS = thdata-> numQTZLEVELS;
     int self = thdata->self, q, i;
     int *gval_qu = thdata->gval_qu;
+    greyval_t *gval = thdata->gval;
     pixel_t x;
     long area=0;
-    long width = thdata->img.width;
+    long size = thdata->img.size;
     pixel_t numpixelsperlevel[numQTZLEVELS], lero[numQTZLEVELS], xm;
+    pixel_t *SORTED = thdata->SORTED;
     Queue *set = thdata->thisqueue;
 
     for (i=0; i<numQTZLEVELS; i++)
@@ -405,13 +410,13 @@ void *ccaf(void *arg)
     LocalTreeFlood(self, set, lero, gval_qu[xm], &area, node_qu, gval_qu, thdata);
     for (i=0; i<size; i++)
       if(node_qu[i].parent == bottom)
-	printf("%d %d %d\n", i ,node_qu[i].parent, SORTED[i]);
+	printf("%d %ld %ld\n", i ,node_qu[i].parent, SORTED[i]);
     i = 1;
     q = self;
     while ((self+i<nthreads) && (q%2 == 0))
     {
         Psa(self+i);  /* wait to glue with righthand neighbor */
-        Fuse(self, i, node_qu, gval_qu);
+        Fuse(self, i, node_qu, gval_qu, thdata->img, gval);
         i = 2*i;
         q = q/2;
     }
@@ -439,8 +444,10 @@ void BuildQuantizedTree(GeneralThreadData *thdata, int nthreads)
 int BuildMaxTreeOfQuantizedImage(GeneralThreadData *threadData)
 {
 	// Build the max tree of the quantized image
+    long size = threadData->img.size;
     node_qu = calloc((size_t)size, sizeof(MaxNode));
     int *gval_qu = threadData->gval_qu;
+    greyval_t *gval = threadData->gval;
     if (node_qu==NULL)
     {
         fprintf(stderr, "out of memory! \n");

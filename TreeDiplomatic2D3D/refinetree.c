@@ -57,9 +57,13 @@ void RunRefinementThreads(GeneralThreadData *thdata, int nthreadsRef)
 }
 
 // it works for both 3D and 2D if width = size2D
-int GetNeighborsBerger(pixel_t p, pixel_t *neighbors, pixel_t lwb, pixel_t upb)
+int GetNeighborsBerger(pixel_t p, pixel_t *neighbors, pixel_t lwb, pixel_t upb, ImageProperties img)
 {
    pixel_t x, y, z;
+   long size2D = img.size2D;
+   long width = img.width;
+   long height = img.height;
+   long depth = img.depth;
    int n=0;
    x = p % width; 
    y = (p % size2D) / width;
@@ -131,6 +135,7 @@ void *rnc(void *arg)
 	pixel_t neighbors[CONNECTIVITY];
 	pixel_t i, j, p, q, r, ancest_quFound, tobezipped;
 	pixel_t lwb, upb;
+        pixel_t *SORTED = threfdata->SORTED;
 	
 	lwb = pxStartPosition[self];
 	upb = pxEndPosition[self];
@@ -142,7 +147,7 @@ void *rnc(void *arg)
 		p = SORTED[i];
 		zpar[p] = p;
 			
-		numneighbors = GetNeighborsBerger(p, neighbors, lwb, upb);
+		numneighbors = GetNeighborsBerger(p, neighbors, lwb, upb, threfdata->img);
 		
 		for (j=0; j<numneighbors; j++)
 		{
@@ -203,7 +208,7 @@ void *rnc(void *arg)
 void RefineTreeBerger(int nthreads, GeneralThreadData *threadData)
 {
     start_ref = times(&tstruct);	
-    TreeAndCollectionsCreate(size);
+    TreeAndCollectionsCreate(threadData->img.size);
     RunRefinementThreads(threadData, nthreads);
     FreeQuantized(threadData, nthreads);
     end_ref = times(&tstruct);
