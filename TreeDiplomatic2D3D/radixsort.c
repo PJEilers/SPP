@@ -1,6 +1,4 @@
-#include "common.h"
-#include "quanttree.h"
-#include "radixsort.h"
+#include "TreeDiplomatic.h"
 
 void RunRSCountingSort(ThreadSortingDataRS *allThdata, int nthreads)
 {	
@@ -16,6 +14,15 @@ void RunRSCountingSort(ThreadSortingDataRS *allThdata, int nthreads)
     }
 }
 
+void FreeSortingDataRS(ThreadSortingDataRS *data, int numthreads, int numSteps) {
+    int i;
+    free(data->SORTEDRS[(numSteps+1)%2]);
+    free(data->HISTOGRAMRS[(numSteps)%2]);
+    for (i=0; i<numthreads; i++)
+        free(data[i].hist);
+    free(data);
+}
+
 ThreadSortingDataRS *MakeThreadRadixSortData(int numthreads, int numSteps, ImageProperties img, greyval_t *gval)
 {
     ThreadSortingDataRS *data = malloc(numthreads *sizeof(ThreadSortingDataRS));
@@ -23,10 +30,10 @@ ThreadSortingDataRS *MakeThreadRadixSortData(int numthreads, int numSteps, Image
     pixel_t *HISTOGRAMRS[2];
     HISTOGRAMRS[0] = (pixel_t *) malloc(NUMBUCKETS*sizeof(pixel_t));
     HISTOGRAMRS[1] = (pixel_t *) malloc(NUMBUCKETS*sizeof(pixel_t));
-    SORTEDRS[0] = (pixel_t *) malloc(size * sizeof(pixel_t));
-    SORTEDRS[1] = (pixel_t *) malloc(size * sizeof(pixel_t));
+    SORTEDRS[0] = (pixel_t *) malloc(img.size * sizeof(pixel_t));
+    SORTEDRS[1] = (pixel_t *) malloc(img.size * sizeof(pixel_t));
     int i;
-
+    
     for (i=0; i<numthreads; i++)
     {	
         data[i].self = i;
@@ -34,6 +41,7 @@ ThreadSortingDataRS *MakeThreadRadixSortData(int numthreads, int numSteps, Image
         data[i].numStepsRS = numSteps;
         data[i].img = img;
         data[i].gval = gval;
+        data[i].nthreads = numthreads;
         data[i].HISTOGRAMRS[0] = HISTOGRAMRS[0];
         data[i].HISTOGRAMRS[1] = HISTOGRAMRS[1];
         data[i].SORTEDRS[0] = SORTEDRS[0];
@@ -41,23 +49,17 @@ ThreadSortingDataRS *MakeThreadRadixSortData(int numthreads, int numSteps, Image
 
         //printf("Thread %d, LWB = %ld, UPB = %ld\n",i,LWB(i, numthreads),UPB(i, numthreads));
     }
+    data[0].thsortingdataRS = data;
     return(data);
-}
-
-void FreeThreadSortingDataRS(ThreadSortingDataRS *data, int numthreads)
-{
-    int i;
-    for (i=0; i<numthreads; i++)
-        free(data[i].hist);
-    free(data);
 }
 
 /* works on 2 bytes rather than 1 byte each loop */
 void LocalHistRS2(int self, pixel_t *sorted, pixel_t *hist, int step, ThreadSortingDataRS *thdata)
 {
 	pixel_t lwb, upb, i;
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    int nthreads = thdata->nthreads;
+    lwb = LWB(self, nthreads, thdata->img.size2D, thdata->img.depth);
+    upb = UPB(self, nthreads, thdata->img.size2D, thdata->img.depth);
     unsigned short radix;
     greyval_t *gval = thdata->gval;
         
@@ -86,8 +88,9 @@ void LocalHistRS2(int self, pixel_t *sorted, pixel_t *hist, int step, ThreadSort
 void CreateSortedArrayRS2(int self, pixel_t *sortedNew, pixel_t *sortedOld, pixel_t *hist, int step, ThreadSortingDataRS *thdata)
 {
 	pixel_t lwb, upb, i;
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    int nthreads = thdata->nthreads;
+    lwb = LWB(self, nthreads, thdata->img.size2D, thdata->img.depth);
+    upb = UPB(self, nthreads, thdata->img.size2D, thdata->img.depth);
     greyval_t *gval = thdata->gval;
     unsigned short radix;
     
@@ -116,6 +119,7 @@ void *csortRS(void *arg)
     ThreadSortingDataRS *thdata = (ThreadSortingDataRS *) arg;
     int self = thdata->self;
     int numStepsRS = thdata->numStepsRS;
+    int nthreads = thdata->nthreads;
     pixel_t *histogram;
     pixel_t *HISTOGRAMRS[2];
     pixel_t *SORTEDRS[2];
@@ -133,6 +137,7 @@ void *csortRS(void *arg)
 		// thread 0 collects the results from the other threads
 		if(self == 0)
 		{
+                        ThreadSortingDataRS *thsortingdataRS = thdata->thsortingdataRS;
 			pixel_t i,j;
 			histogram = HISTOGRAMRS[step%2];
 			
@@ -216,9 +221,11 @@ void *fpx(void *arg)
     ThreadSortingDataRS *threfdata = (ThreadSortingDataRS *) arg;
     greyval_t *gval = threfdata->gval;
     int self = threfdata->self;
+    short bitsPerPixel = threfdata->img.bitsPerPixel;
+    int nthreads = threfdata-> nthreads;
     pixel_t lwb, upb, i;
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    lwb = LWB(self, nthreads, threfdata->img.size2D, threfdata->img.depth);
+    upb = UPB(self, nthreads, threfdata->img.size2D, threfdata->img.depth);
 	
 	if(bitsPerPixel == 32)
 	{
@@ -244,10 +251,12 @@ void *fpxback(void *arg)
 {
     ThreadSortingDataRS *threfdata = (ThreadSortingDataRS *) arg;
     greyval_t *gval = threfdata->gval;
+    short bitsPerPixel = threfdata->img.bitsPerPixel;
     int self = threfdata->self;
+    int nthreads = threfdata-> nthreads;
     pixel_t lwb, upb, i;
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    lwb = LWB(self, nthreads, threfdata->img.size2D, threfdata->img.depth);
+    upb = UPB(self, nthreads, threfdata->img.size2D, threfdata->img.depth);
 	
 	if(bitsPerPixel == 32)
 	{
@@ -268,22 +277,22 @@ void *fpxback(void *arg)
     return NULL;
 }
 
-ThreadFlipData *MakeThreadFlipData(int numthreads)
-{
-    ThreadFlipData *data = malloc(numthreads *sizeof(ThreadFlipData));
-    int i;
-
-    for (i=0; i<numthreads; i++)
-    {
-        data[i].self=i;
-    }
-    return(data);
-}
-
-void FreeThreadFlipData(ThreadFlipData *data, int numthreads)
-{
-    free(data);
-}
+// ThreadFlipData *MakeThreadFlipData(int numthreads)
+// {
+//     ThreadFlipData *data = malloc(numthreads *sizeof(ThreadFlipData));
+//     int i;
+// 
+//     for (i=0; i<numthreads; i++)
+//     {
+//         data[i].self=i;
+//     }
+//     return(data);
+// }
+// 
+// void FreeThreadFlipData(ThreadFlipData *data, int numthreads)
+// {
+//     free(data);
+// }
 
 void RunThreadsFlipping(ThreadSortingDataRS *thdata, int nthreads)
 {
@@ -327,12 +336,12 @@ void FlipBackParallel(int nthreads, greyval_t *gval)
     FreeThreadFlipData(thflipdata, nthreads);
 }*/
 
-pixel_t *RunRadixSortUnsigned(int numSteps, ImageProperties img, greyval_t *gval)
+pixel_t *RunRadixSortUnsigned(int numSteps, ImageProperties img, greyval_t *gval, int nthreads)
 {	
     
 	printf("Radix Sort (steps=%d)\n", numSteps);
 	
-	thsortingdataRS = MakeThreadRadixSortData(nthreads, numSteps, img, gval);
+	ThreadSortingDataRS *thsortingdataRS = MakeThreadRadixSortData(nthreads, numSteps, img, gval);
 	
 	
 	if(USEFLOATPOINT && !USEFLOATPOINT_ONLYPOSITIVE)
@@ -349,7 +358,7 @@ pixel_t *RunRadixSortUnsigned(int numSteps, ImageProperties img, greyval_t *gval
                                        nthreads);
 	}
 	
-	FreeThreadSortingDataRS(thsortingdataRS, nthreads);
+	FreeSortingDataRS(thsortingdataRS, nthreads, numSteps);
 	return SORTED;	
 }
 

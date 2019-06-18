@@ -1,4 +1,4 @@
-#include "common.h"
+#include "TreeDiplomatic.h"
 #include "handleimages.h"
 
 /****** Image read/write functions ******************************/
@@ -87,28 +87,28 @@ FIBITMAP* GenericLoader(const char* lpszPathName, int flag)
 //     return;
 // }
 
-greyval_t FindMax(greyval_t *gval)
-{
-    greyval_t max = gval[0];
-    pixel_t i;
-    for (i = 1; i<size; i++)
-    {
-        max = (gval[i]>max) ? gval[i] : max;
-    }
-    return max;
-}
-
-greyval_t FindMin(greyval_t *gval)
-{
-    greyval_t min = gval[0];
-    pixel_t i;
-    
-    for (i = 1; i<size; i++)
-    {
-        min = (gval[i]<min) ? gval[i] : min;
-    }
-    return min;
-}
+// greyval_t FindMax(greyval_t *gval)
+// {
+//     greyval_t max = gval[0];
+//     pixel_t i;
+//     for (i = 1; i<size; i++)
+//     {
+//         max = (gval[i]>max) ? gval[i] : max;
+//     }
+//     return max;
+// }
+// 
+// greyval_t FindMin(greyval_t *gval)
+// {
+//     greyval_t min = gval[0];
+//     pixel_t i;
+//     
+//     for (i = 1; i<size; i++)
+//     {
+//         min = (gval[i]<min) ? gval[i] : min;
+//     }
+//     return min;
+// }
 
 // short ReadTIFF(char *fnm)
 // {
@@ -167,101 +167,101 @@ greyval_t FindMin(greyval_t *gval)
 //     }
 //}
 
-int WriteFITS(char *filename, char *inputimagefilename, greyval_t *out)
-{
-    fitsfile *outfptr, *infptr;  /* FITS file pointers */
-    int status = 0;  /* CFITSIO status value MUST be initialized to zero! */
-
-    char str1[100];
-    strcpy(str1, "!"); // '!' symbol makes the output image, if existing, to be overwritten
-
-    // create the new empty output file
-    if (!fits_create_file(&outfptr, strcat(str1, filename), &status) )
-    {
-        // copy all the header keywords from original image to new output file
-        fits_open_file(&infptr, inputimagefilename, READONLY, &status); // open input images
-        fits_copy_header(infptr, outfptr, &status);
-        fits_close_file(infptr, &status);
-
-        long fpixel[2];
-        fpixel[0] = fpixel[1] = 1; // start to copy from the first element in the array gval (row=1, col 1)
-        fits_write_pix(outfptr, TUSHORT, fpixel, width*depth, out, &status); // write new values to output image
-        //fits_write_pix(outfptr, TUSHORT, fpixel, 2048*1489, gval, &status); // write new values to output image
-        
-        printf("File should be written.\n");
-        /**
-        bitpix variable can assume:
-        BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
-        SHORT_IMG  =  16   (16 bit integer pixels)
-        LONG_IMG   =  32   (32-bit integer pixels)
-        FLOAT_IMG  = -32   (32-bit floating point pixels)
-        DOUBLE_IMG = -64   (64-bit floating point pixels)
-        **/
-    }
-    fits_close_file(outfptr, &status);
-    return 0;
-} /* WriteFITS */
-
-
-/* WriteTIFF_2 */
-void WriteTIFF_2(char *fname, greyval_t *img, pixel_t width, pixel_t height, int bitspp)
-{
-    FIBITMAP *outmap;
-    pixel_t i, y, x;
-    //FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(fname);
-
-    if (bitspp == 8)
-    {
-        ubyte *imagebuf;
-        RGBQUAD *pal;
-        outmap = FreeImage_AllocateT(FIT_BITMAP,width,depth,bitspp,0xFF,0xFF,0xFF);
-        pal = FreeImage_GetPalette(outmap);
-        for (i = 0; i < 256; i++)
-        {
-            pal[i].rgbRed = i;
-            pal[i].rgbGreen = i;
-            pal[i].rgbBlue = i;
-        }
-        i = 0;
-        //for (y=0; y<depth; y++)
-        for (y=depth-1; y>=0; y--)
-        {
-            imagebuf = FreeImage_GetScanLine(outmap,y);
-            for (x=0; x<width; x++,i++)
-            {
-                //imagebuf[x]=out[i];
-                imagebuf[x]=img[i];
-			}
-        }
-    }
-    else
-    {
-        unsigned short *imagebuf;
-        outmap = FreeImage_AllocateT(FIT_UINT16,width,depth,16,0xFFFF,0xFFFF,0xFFFF);
-        i = 0;
-        //for (y=0; y<depth; y++)
-        for (y=depth-1; y>=0; y--)
-        {
-            imagebuf = (unsigned short *)FreeImage_GetScanLine(outmap,y);
-            for (x=0; x<width; x++,i++)
-                imagebuf[x]=img[i];
-
-        }
-    }
-    //FreeImage_Save(fif,outmap,fname,0);
-    FreeImage_Save(FIF_TIFF,outmap,fname, TIFF_NONE);
-    FreeImage_Unload(outmap);
-} 
+// int WriteFITS(char *filename, char *inputimagefilename, greyval_t *out)
+// {
+//     fitsfile *outfptr, *infptr;  /* FITS file pointers */
+//     int status = 0;  /* CFITSIO status value MUST be initialized to zero! */
+// 
+//     char str1[100];
+//     strcpy(str1, "!"); // '!' symbol makes the output image, if existing, to be overwritten
+// 
+//     // create the new empty output file
+//     if (!fits_create_file(&outfptr, strcat(str1, filename), &status) )
+//     {
+//         // copy all the header keywords from original image to new output file
+//         fits_open_file(&infptr, inputimagefilename, READONLY, &status); // open input images
+//         fits_copy_header(infptr, outfptr, &status);
+//         fits_close_file(infptr, &status);
+// 
+//         long fpixel[2];
+//         fpixel[0] = fpixel[1] = 1; // start to copy from the first element in the array gval (row=1, col 1)
+//         fits_write_pix(outfptr, TUSHORT, fpixel, width*depth, out, &status); // write new values to output image
+//         //fits_write_pix(outfptr, TUSHORT, fpixel, 2048*1489, gval, &status); // write new values to output image
+//         
+//         printf("File should be written.\n");
+//         /**
+//         bitpix variable can assume:
+//         BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
+//         SHORT_IMG  =  16   (16 bit integer pixels)
+//         LONG_IMG   =  32   (32-bit integer pixels)
+//         FLOAT_IMG  = -32   (32-bit floating point pixels)
+//         DOUBLE_IMG = -64   (64-bit floating point pixels)
+//         **/
+//     }
+//     fits_close_file(outfptr, &status);
+//     return 0;
+// } /* WriteFITS */
 
 
-int WriteTIFF(char *fname, greyval_t *img)
-{
-    if (FindMax(img)>255) 
-        WriteTIFF_2(fname, img, width, depth, 16);
-    else WriteTIFF_2(fname, img, width, depth, 8);
-
-    return 0;
-}
+// /* WriteTIFF_2 */
+// void WriteTIFF_2(char *fname, greyval_t *img, pixel_t width, pixel_t height, int bitspp)
+// {
+//     FIBITMAP *outmap;
+//     pixel_t i, y, x;
+//     //FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(fname);
+// 
+//     if (bitspp == 8)
+//     {
+//         ubyte *imagebuf;
+//         RGBQUAD *pal;
+//         outmap = FreeImage_AllocateT(FIT_BITMAP,width,depth,bitspp,0xFF,0xFF,0xFF);
+//         pal = FreeImage_GetPalette(outmap);
+//         for (i = 0; i < 256; i++)
+//         {
+//             pal[i].rgbRed = i;
+//             pal[i].rgbGreen = i;
+//             pal[i].rgbBlue = i;
+//         }
+//         i = 0;
+//         //for (y=0; y<depth; y++)
+//         for (y=depth-1; y>=0; y--)
+//         {
+//             imagebuf = FreeImage_GetScanLine(outmap,y);
+//             for (x=0; x<width; x++,i++)
+//             {
+//                 //imagebuf[x]=out[i];
+//                 imagebuf[x]=img[i];
+// 			}
+//         }
+//     }
+//     else
+//     {
+//         unsigned short *imagebuf;
+//         outmap = FreeImage_AllocateT(FIT_UINT16,width,depth,16,0xFFFF,0xFFFF,0xFFFF);
+//         i = 0;
+//         //for (y=0; y<depth; y++)
+//         for (y=depth-1; y>=0; y--)
+//         {
+//             imagebuf = (unsigned short *)FreeImage_GetScanLine(outmap,y);
+//             for (x=0; x<width; x++,i++)
+//                 imagebuf[x]=img[i];
+// 
+//         }
+//     }
+//     //FreeImage_Save(fif,outmap,fname,0);
+//     FreeImage_Save(FIF_TIFF,outmap,fname, TIFF_NONE);
+//     FreeImage_Unload(outmap);
+// } 
+// 
+// 
+// int WriteTIFF(char *fname, greyval_t *img)
+// {
+//     if (FindMax(img)>255) 
+//         WriteTIFF_2(fname, img, width, depth, 16);
+//     else WriteTIFF_2(fname, img, width, depth, 8);
+// 
+//     return 0;
+// }
 
 
 greyval_t *ReadFITS3D(char *filename, ImageProperties *img)
@@ -284,11 +284,6 @@ greyval_t *ReadFITS3D(char *filename, ImageProperties *img)
 			}
             else
             {
-                width = naxes[0];
-                height = naxes[1];
-                depth = naxes[2];
-                size2D = naxes[0]*naxes[1];
-                size = naxes[0]*naxes[1]*naxes[2];
                 (*img).width = naxes[0];
                 (*img).height = naxes[1];
                 (*img).depth = naxes[2];
@@ -396,39 +391,39 @@ printf("Read FITS...\n");
 // }
 
 
-int WriteFITS3DCUBE(char *filename, char *inputimagefilename, greyval_t *out)
-{
-    fitsfile *outfptr, *infptr;  /* FITS file pointers */
-    int status = 0;  /* CFITSIO status value MUST be initialized to zero! */
+// int WriteFITS3DCUBE(char *filename, char *inputimagefilename, greyval_t *out)
+// {
+//     fitsfile *outfptr, *infptr;  /* FITS file pointers */
+//     int status = 0;  /* CFITSIO status value MUST be initialized to zero! */
+// 
+//     char str1[100];
+//     strcpy(str1, "!"); // '!' symbol makes the output image, if existing, to be overwritten
+// 
+//     // create the new empty output file
+//     if (!fits_create_file(&outfptr, strcat(str1, filename), &status) )
+//     {
+//         // copy all the header keywords from original image to new output file
+//         fits_open_file(&infptr, inputimagefilename, READONLY, &status); // open input images
+//         fits_copy_header(infptr, outfptr, &status);
+//         fits_close_file(infptr, &status);
+// 
+//         long fpixel[3];
+//         fpixel[0] = fpixel[1] = fpixel[2] = 1; // start to copy from the first element in the array gval (row=1, col 1)
+//         fits_write_pix(outfptr, TFLOAT, fpixel, 1024*1024*1082, out, &status); // write new values to output image
+//         /**
+//         bitpix variable can assume:
+//         BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
+//         SHORT_IMG  =  16   (16 bit integer pixels)
+//         LONG_IMG   =  32   (32-bit integer pixels)
+//         FLOAT_IMG  = -32   (32-bit floating point pixels)
+//         DOUBLE_IMG = -64   (64-bit floating point pixels)
+//         **/
+//     }
+//     fits_close_file(outfptr, &status);
+//     return 0;
+// }
 
-    char str1[100];
-    strcpy(str1, "!"); // '!' symbol makes the output image, if existing, to be overwritten
-
-    // create the new empty output file
-    if (!fits_create_file(&outfptr, strcat(str1, filename), &status) )
-    {
-        // copy all the header keywords from original image to new output file
-        fits_open_file(&infptr, inputimagefilename, READONLY, &status); // open input images
-        fits_copy_header(infptr, outfptr, &status);
-        fits_close_file(infptr, &status);
-
-        long fpixel[3];
-        fpixel[0] = fpixel[1] = fpixel[2] = 1; // start to copy from the first element in the array gval (row=1, col 1)
-        fits_write_pix(outfptr, TFLOAT, fpixel, 1024*1024*1082, out, &status); // write new values to output image
-        /**
-        bitpix variable can assume:
-        BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
-        SHORT_IMG  =  16   (16 bit integer pixels)
-        LONG_IMG   =  32   (32-bit integer pixels)
-        FLOAT_IMG  = -32   (32-bit floating point pixels)
-        DOUBLE_IMG = -64   (64-bit floating point pixels)
-        **/
-    }
-    fits_close_file(outfptr, &status);
-    return 0;
-}
-
-int WriteFITS3D(char *filename, char *inputimagefilename, greyval_t *out)
+int WriteFITS3D(char *filename, char *inputimagefilename, greyval_t *out, ImageProperties img)
 {
     fitsfile *outfptr, *infptr;  /* FITS file pointers */
     int status = 0;  /* CFITSIO status value MUST be initialized to zero! */
@@ -450,7 +445,7 @@ int WriteFITS3D(char *filename, char *inputimagefilename, greyval_t *out)
 
         long fpixel[3];
         fpixel[0] = fpixel[1] = fpixel[2] = 1; // start to copy from the first element in the array gval (row=1, col 1)
-        fits_write_pix(outfptr, TFLOAT, fpixel, width*depth*height, out, &status); // write new values to output image
+        fits_write_pix(outfptr, TFLOAT, fpixel, img.width*img.depth*img.height, out, &status); // write new values to output image
         /**
         bitpix variable can assume:
         BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)

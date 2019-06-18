@@ -1,6 +1,4 @@
-#include "common.h"
-#include "quantizedimage.h"
-#include "quanttree.h"
+#include "TreeDiplomatic.h"
 
 
 void MakeThreadPixelPositions(int numthreads, GeneralThreadData *data) {

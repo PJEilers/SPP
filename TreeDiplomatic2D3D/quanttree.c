@@ -1,16 +1,16 @@
-#include "common.h"
-#include "quanttree.h"
-#include "handleimages.h"
+#include "TreeDiplomatic.h"
 
 pthread_mutex_t samut[MAXTHREADS];
 pthread_cond_t  sacv[MAXTHREADS];
 int             saval[MAXTHREADS];
 pthread_mutex_t barriermutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t barriercv = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+int barcnt = 0;
 
 /************************** safe malloc and calloc ************************************/
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 void *SafeMalloc(int n)
 {
@@ -59,7 +59,7 @@ void Vsa(int p)
 }
 
 /************************** barrier ************************************/
-int barcnt = 0;
+
 
 void Barrier(int self, int nthreads)
 {
@@ -79,7 +79,7 @@ void Barrier(int self, int nthreads)
 
 /************************** level root ************************************/
 
-pixel_t levroot(pixel_t x, int *gvalues)
+pixel_t levroot(pixel_t x, int *gvalues, MaxNode *node_qu)
 {
     pixel_t r=x, y ;
     greyval_t gv=gvalues[x];
@@ -96,22 +96,22 @@ pixel_t levroot(pixel_t x, int *gvalues)
     return r;
 }
 
-pixel_t Par(pixel_t x, int *gvalues)
+pixel_t Par(pixel_t x, int *gvalues, MaxNode *node_qu)
 {
-    return (pixel_t) levroot(node_qu[x].parent, gvalues);
+    return (pixel_t) levroot(node_qu[x].parent, gvalues, node_qu);
 }
 
-void levrootfix(pixel_t lwb, pixel_t upb, int *gvalues)
+void levrootfix(pixel_t lwb, pixel_t upb, int *gvalues, MaxNode *node_qu)
 {
     pixel_t z, u, x;
     
     for (x=lwb; x<upb; x++)
     {
-        u = levroot(x, gvalues);
+        u = levroot(x, gvalues, node_qu);
         if (x!=u) node_qu[x].parent=u;
         else
         {
-            z = Par(x, gvalues);
+            z = Par(x, gvalues, node_qu);
             node_qu[x].parent=z;
         }
     }
@@ -163,6 +163,8 @@ int GetNeighbors(pixel_t p, pixel_t x, pixel_t y, pixel_t z,
    int n=0;
    long width = img.width;
    long size2D = img.size2D;
+   long height = img.height;
+   long depth = img.depth;
    x = p % width;
    if (x<(width-1))       neighbors[n++] = p+1;
    if (y>0)               neighbors[n++] = p-width; // never exec in 2D
@@ -183,8 +185,10 @@ int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea
 
     pixel_t neighbors[CONNECTIVITY];
     int numQTZLEVELS = threadData->numQTZLEVELS;
+    int nthreads = threadData->nthreads;
     long width = threadData->img.width;
     long size2D = threadData->img.size2D;
+    bool *reached_qu = threadData->reached_qu;
     greyval_t *gval = threadData->gval;
     
     long area = *thisarea;
@@ -194,8 +198,8 @@ int LocalTreeFlood(int self,  Queue *set, pixel_t *lero, int lev, long *thisarea
     int fq;
     int numneighbors, i, m;
 
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    lwb = LWB(self, nthreads, threadData->img.size2D, threadData->img.depth);
+    upb = UPB(self, nthreads, threadData->img.size2D, threadData->img.depth);
     while(QueueNotEmpty(set, lev))
     {
         area++;
@@ -268,8 +272,8 @@ void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues, greyval_t *gval)
     
     pixel_t h, z;
 
-    x = levroot(x, gvalues);
-    y = levroot(y, gvalues);
+    x = levroot(x, gvalues, node);
+    y = levroot(y, gvalues, node);
     //if (gvalues[x] < gvalues[y]) // changed to keep the levelroot of each component corresponding to the pixel with the minimum intensity value in the original image.
     if ( gval[x] < gval[y] || ((gval[x] == gval[y]) && (x < y)) )
     {
@@ -279,7 +283,7 @@ void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues, greyval_t *gval)
     }
     while ((x!=y) && (y!=bottom))
     {
-        z = Par(x, gvalues);
+        z = Par(x, gvalues, node);
         //if ((z!=bottom) && (gvalues[z]>=gvalues[y]))
         //if ( (z!=bottom) && ((gval[z]>=gval[y])))
         if ( (z!=bottom) && ( (gval[z]>gval[y]) || ((gval[z]==gval[y]) && (z>=y)) ) ) //z>=y
@@ -304,13 +308,13 @@ void Connect(pixel_t x, pixel_t y, MaxNode *node, int *gvalues, greyval_t *gval)
         {
 	  printf("Here");
             node[x].Area += area;
-            x = Par(x, gvalues);
+            x = Par(x, gvalues, node);
         }
     }
 }
 
 
-void Fuse(int self, int i, MaxNode *node, int *gvalues, ImageProperties img, greyval_t *gval) /* fuse regions [LWB(self), UPB(self+i-1)) and  [LWB(self+i), UPB(self+2i-1)) vertically */
+void Fuse(int self, int i, MaxNode *node, int *gvalues, ImageProperties img, greyval_t *gval, int nthreads) /* fuse regions [LWB(self), UPB(self+i-1)) and  [LWB(self+i), UPB(self+2i-1)) vertically */
 {
     pixel_t p, q, x, y;
 
@@ -321,7 +325,7 @@ void Fuse(int self, int i, MaxNode *node, int *gvalues, ImageProperties img, gre
 
     /* get the horizontal boundary */
 
-    p  = LWB(self+i, nthreads);
+    p  = LWB(self+i, nthreads, size2D, img.depth);
 	q = p - size2D;
 
     x = p % width;
@@ -356,7 +360,7 @@ void MakeThreadData(int numthreads, GeneralThreadData *data)
 
     for (i=0; i<numthreads; i++)
     {
-        data[i].thisqueue= QueueCreate( UPB(i, numthreads)-LWB(i, numthreads), data->numQTZLEVELS);
+        data[i].thisqueue= QueueCreate( UPB(i, numthreads, data->img.size2D, data->img.depth)-LWB(i, numthreads, data->img.size2D, data->img.depth), data->numQTZLEVELS);
     }
 }
 
@@ -365,7 +369,6 @@ void FreeThreadQueues(GeneralThreadData *data, int numthreads)
     int i;
     for (i=0; i<numthreads; i++)
         QueueDelete(data[i].thisqueue);
-    free(data);
 }
 
 
@@ -373,8 +376,11 @@ void *ccaf(void *arg)
 {
     GeneralThreadData *thdata = (GeneralThreadData *) arg;
     int numQTZLEVELS = thdata-> numQTZLEVELS;
+    bool *reached_qu = thdata->reached_qu;
+    MaxNode *node_qu = thdata->node_qu;
     int self = thdata->self, q, i;
     int *gval_qu = thdata->gval_qu;
+    int nthreads = thdata->nthreads;
     greyval_t *gval = thdata->gval;
     pixel_t x;
     long area=0;
@@ -382,16 +388,15 @@ void *ccaf(void *arg)
     pixel_t numpixelsperlevel[numQTZLEVELS], lero[numQTZLEVELS], xm;
     pixel_t *SORTED = thdata->SORTED;
     Queue *set = thdata->thisqueue;
-
     for (i=0; i<numQTZLEVELS; i++)
     {
         numpixelsperlevel[i] = 0;
         lero[i] = bottom;
     }
 
-    xm = LWB(self, nthreads);
+    xm = LWB(self, nthreads, thdata->img.size2D, thdata->img.depth);
 
-    for (x=xm; x<UPB(self, nthreads); x++)
+    for (x=xm; x<UPB(self, nthreads, thdata->img.size2D, thdata->img.depth); x++)
     {
         numpixelsperlevel[gval_qu[x]]++;
         node_qu[x].parent = bottom;
@@ -416,7 +421,7 @@ void *ccaf(void *arg)
     while ((self+i<nthreads) && (q%2 == 0))
     {
         Psa(self+i);  /* wait to glue with righthand neighbor */
-        Fuse(self, i, node_qu, gval_qu, thdata->img, gval);
+        Fuse(self, i, node_qu, gval_qu, thdata->img, gval, nthreads);
         i = 2*i;
         q = q/2;
     }
@@ -444,10 +449,13 @@ void BuildQuantizedTree(GeneralThreadData *thdata, int nthreads)
 int BuildMaxTreeOfQuantizedImage(GeneralThreadData *threadData)
 {
 	// Build the max tree of the quantized image
+    int nthreads = threadData->nthreads;
+    int i;
     long size = threadData->img.size;
-    node_qu = calloc((size_t)size, sizeof(MaxNode));
     int *gval_qu = threadData->gval_qu;
     greyval_t *gval = threadData->gval;
+    MaxNode *node_qu = calloc((size_t)size, sizeof(MaxNode));
+    bool *reached_qu = calloc((size_t)size, sizeof(bool));
     if (node_qu==NULL)
     {
         fprintf(stderr, "out of memory! \n");
@@ -455,8 +463,6 @@ int BuildMaxTreeOfQuantizedImage(GeneralThreadData *threadData)
         free(gval_qu);
         return(-1);
     }
-    
-    reached_qu = calloc((size_t)size, sizeof(bool));
     if (reached_qu==NULL)
     {
         fprintf(stderr, "out of memory!\n");
@@ -464,9 +470,16 @@ int BuildMaxTreeOfQuantizedImage(GeneralThreadData *threadData)
         free(gval_qu);
         return(-1);
     }
+
+    
+    for(i = 0; i < nthreads; i++) {
+        threadData[i].reached_qu = reached_qu;
+        threadData[i].node_qu = node_qu;
+    }
+    
+
     MakeThreadData(nthreads, threadData);
     BuildQuantizedTree(threadData, nthreads);
-    FreeThreadQueues(threadData, nthreads);
-    free(reached_qu);    
+    FreeThreadQueues(threadData, nthreads);  
     return 0;
 }

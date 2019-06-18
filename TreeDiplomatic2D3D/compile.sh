@@ -3,3 +3,4 @@
 
 gcc -O3 -Wall -std=gnu99 -pedantic -fexpensive-optimizations -funroll-loops -c -L$HOME/lib -I$HOME/lib main.c quanttree.c handleimages.c quantizedimage.c refinetree.c radixsort.c filter.c -lpthread -lcfitsio -lfreeimage
 
+gcc -O3 -Wall -std=gnu99 -pedantic -fexpensive-optimizations -funroll-loops -c -L$HOME/lib -I$HOME/lib main.c handleimages.c -ltreediplomatic -lpthread -lcfitsio -lfreeimage

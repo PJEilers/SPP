@@ -10,7 +10,7 @@ int WriteFITS(char *filename, char *inputimagefilename, greyval_t *out);
 int WriteTIFF(char *fname, greyval_t *img);
 void WriteTIFF_2(char *fname, greyval_t *img, pixel_t width, pixel_t height, int bitspp);
 greyval_t *ReadFITS3D(char *filename, ImageProperties *img);
-int WriteFITS3D(char *filename, char *inputimagefilename, greyval_t *out);
+int WriteFITS3D(char *filename, char *inputimagefilename, greyval_t *out, ImageProperties img);
 int ReadFITS3D_CUBE(char *filename);
 int WriteFITS3DCUBE(char *filename, char *inputimagefilename, greyval_t *out);
 

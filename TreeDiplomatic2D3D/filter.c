@@ -1,10 +1,9 @@
-#include "common.h"
-#include "stdlib.h"
-#include "filter.h"
+#include "TreeDiplomatic.h"
 
-void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval, long size)
+void RefTreeAreaFilterBerger(double lambda, greyval_t *out, greyval_t *gval, long size, Node *node_ref)
 {
-	pixel_t v, u, w, parent, lwb, upb;
+    
+    pixel_t v, u, w, parent, lwb, upb;
     greyval_t val;
     
     lwb = 0;
@@ -64,15 +63,17 @@ void *runfilt(void *arg)
 	GeneralThreadData *thfiltdata = (GeneralThreadData *) arg;
         double lambda = thfiltdata->lambda;
     int self = thfiltdata->self;
+    int nthreads = thfiltdata->nthreads;
     greyval_t *gval = thfiltdata->gval;
-    greyval_t *out = outRef;
+    greyval_t *out = thfiltdata->outRef;
+    Node *node_ref= thfiltdata->node_ref;
     
     pixel_t v, u, w, parent, lwb, upb;
     greyval_t val;
     //lwb = 0;
     //upb = size;
-    lwb = LWB(self, nthreads);
-    upb = UPB(self, nthreads);
+    lwb = LWB(self, nthreads, thfiltdata->img.size2D, thfiltdata->img.depth);
+    upb = UPB(self, nthreads, thfiltdata->img.size2D, thfiltdata->img.depth);
     
     printf("%d) lwb=%ld; upb=%ld.\n", self, lwb, upb);
     
@@ -157,12 +158,12 @@ void RunFilter(GeneralThreadData *thdata, int nthreads)
 
 void ParallelFilter(int nthreads, GeneralThreadData *threadData)
 {  
-    RunFilter(threadData, nthreadsRef);
+    RunFilter(threadData, threadData->numQTZLEVELS);
    // FreeThreadFiltData(thfiltdata, nthreadsRef);
 }
 
 void Filter(GeneralThreadData *threadData, double lambda)
 {	
-	RefTreeAreaFilterBerger(lambda, outRef, threadData->gval, threadData->img.size);
+	RefTreeAreaFilterBerger(lambda, threadData->outRef, threadData->gval, threadData->img.size, threadData->node_ref);
 	//ParallelFilter(nthreadsRef);
 }

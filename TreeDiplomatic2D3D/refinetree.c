@@ -1,15 +1,11 @@
-#include "common.h"
-#include "stdlib.h"
-#include "refinetree.h"
-#include "quanttree.h"
-#include "handleimages.h"
+#include "TreeDiplomatic.h"
 
-void TreeAndCollectionsCreate(pixel_t size)
+void TreeAndCollectionsCreate(pixel_t size, GeneralThreadData *threadData)
 {
-   zpar = malloc(size*sizeof(pixel_t));
+   pixel_t *zpar = malloc(size*sizeof(pixel_t));
    
    pixel_t i;
-   node_ref = calloc(size, sizeof(Node));
+   Node *node_ref = calloc(size, sizeof(Node));
 
    if (node_ref)
    {
@@ -20,6 +16,10 @@ void TreeAndCollectionsCreate(pixel_t size)
      	  zpar[i] = -1;
       }
    } else {printf("ERROR in TreeCollectionsCreate.\n"); exit(0);}
+   for( i = 0; i < threadData->nthreads; i++) {
+        threadData[i].zpar = zpar;
+        threadData[i].node_ref = node_ref;
+   }
    return;
 }
 
@@ -36,11 +36,6 @@ void TreeAndCollectionsCreate(pixel_t size)
     return(data);
 }*/
 
-
-void FreeQuantized(GeneralThreadData *data, int numthreads)
-{
-    free(data->gval_qu);    
-}
 
 void RunRefinementThreads(GeneralThreadData *thdata, int nthreadsRef)
 {
@@ -81,7 +76,7 @@ int GetNeighborsBerger(pixel_t p, pixel_t *neighbors, pixel_t lwb, pixel_t upb, 
    return(n);
 }
 
-pixel_t DescendRoots(pixel_t q, int myLev, int *gval_qu)
+pixel_t DescendRoots(pixel_t q, int myLev, int *gval_qu, MaxNode *node_qu)
 {
 	pixel_t curr = q;
 	//while((node_qu[curr].parent != bottom) && (gval_qu[ node_qu[curr].parent ] > myLev))
@@ -93,7 +88,7 @@ pixel_t DescendRoots(pixel_t q, int myLev, int *gval_qu)
 }
 
 // path compression without recursion
-pixel_t FINDROOT(pixel_t p)
+pixel_t FINDROOT(pixel_t p, pixel_t *zpar)
 {
 	pixel_t first = p;
 	while(p != zpar[p])
@@ -127,7 +122,10 @@ void *rnc(void *arg)
 	GeneralThreadData *threfdata = (GeneralThreadData *) arg;
         pixel_t *pxStartPosition = threfdata->pxStartPosition;
         pixel_t *pxEndPosition = threfdata-> pxEndPosition;
+        pixel_t *zpar = threfdata->zpar;
+        Node *node_ref = threfdata->node_ref;
         int self = threfdata->self;
+        MaxNode *node_qu = threfdata->node_qu;
         int *gval_qu = threfdata->gval_qu;
     
 	// analyse the pixels in decreasing order of intensity
@@ -156,7 +154,7 @@ void *rnc(void *arg)
 			if(gval_qu[q] > self)
 			{			
 				// descend level roots in node_qu[] and stop when a level root pointing to the quantization level of my thread is found
-				ancest_quFound = DescendRoots(q, self, gval_qu);	
+				ancest_quFound = DescendRoots(q, self, gval_qu, node_qu);	
 				
 				if (node_ref[ancest_quFound].parent == bottom)
 				{
@@ -165,7 +163,7 @@ void *rnc(void *arg)
 				}			
 				else //perform zipping phase
 				{
-					tobezipped = FINDROOT(node_ref[ancest_quFound].parent);					
+					tobezipped = FINDROOT(node_ref[ancest_quFound].parent, zpar);					
 					
 					if(tobezipped != p)
 					{
@@ -187,7 +185,7 @@ void *rnc(void *arg)
 				if(zpar[q] != -1)
 				//if( (gval[q] > gval[p]) || ( (gval[q] == gval[p]) && (q > p)) )
 				{
-					r = FINDROOT(q);
+					r = FINDROOT(q, zpar);
 					if(r != p)
 					{
 						node_ref[r].parent = p; 
@@ -207,9 +205,7 @@ void *rnc(void *arg)
 
 void RefineTreeBerger(int nthreads, GeneralThreadData *threadData)
 {
-    start_ref = times(&tstruct);	
-    TreeAndCollectionsCreate(threadData->img.size);
+
+    TreeAndCollectionsCreate(threadData->img.size, threadData);
     RunRefinementThreads(threadData, nthreads);
-    FreeQuantized(threadData, nthreads);
-    end_ref = times(&tstruct);
 }
