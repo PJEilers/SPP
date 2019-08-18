@@ -7,19 +7,7 @@ char *getExtension(const char *filename)
     return (char *)dot + 1;
 }
 
-void FreeThreadData(GeneralThreadData *threadData) {
-    free(threadData->gval);
-    free(threadData->outRef);
-    free(threadData->gval_qu);
-    free(threadData->pxStartPosition);
-    free(threadData->pxEndPosition);
-    free(threadData->SORTED);
-    free(threadData->reached_qu);
-    free(threadData->node_qu);
-    free(threadData->node_ref);
-    free(threadData->zpar);
-    free(threadData);
-}
+
 
 void printTimings(Timings timings)
 {
@@ -47,15 +35,24 @@ int main (int argc, char *argv[])
 {
     char *imgfname, *outfname = "out.fits";
     bool is3D = false;
+    int i;
     short bitsPerPixel = 8; 
     Timings timings;
     timings.tickspersec = sysconf(_SC_CLK_TCK); 
+    int attrib = 0;
+    AttribStruct *Attribs = getAttribs();
 
-    if (argc<7)
+    if (argc<6)
     {
-		printf("Usage: %s <nthreads> <input image> <lambda> <bits per pixel> <output image> <is3D>.\n", argv[0]);
-		exit(0);
+		printf("Usage: %s <nthreads> <input image> <lambda> <bits per pixel> <output image> [attrib].\n", argv[0]);
+                printf("Where attrib is: \n");
+                for(i = 0; i < NUMATTR; i++) {
+                   printf("\t%d - %s\n", i, Attribs[i].Name); 
+                }
+                exit(0);
     }
+    
+    if(argc > 6) attrib = atoi(argv[6]);
     
     int nthreads = MIN(atoi(argv[1]), MAXTHREADS); // number of threads used for the parallel sorting algorithm and for the parallel building of the quantized max tree
     //inputQTZLEVELS = atoi(argv[2]); // number of quantized levels to work with
@@ -67,30 +64,27 @@ int main (int argc, char *argv[])
     is3D = (atoi(argv[6]));
     //width = height = depth = size = size2D = 0;
     ImageProperties img;	
-    greyval_t *gval = ReadFITS3D(imgfname, &img);
-   // {if(!ReadFITS3D(imgfname, &img){printf("fits image failed to read\n"); return(-1);}}
+    greyval_t *gval;
+    gval = ReadFITS3D(imgfname, &img);
+    
+    
     img.size = img.width*img.height*img.depth;
-    if(is3D)
-      img.size2D = img.width*img.height;
-    else
+    if(img.depth > 1) {
+        img.size2D = img.width*img.height;     
+        is3D = true;
+    }
+    else {
       img.size2D = img.width;
+      img.depth = img.height;
+      img.height = 1;
+      is3D = false;
+    }
 		
     img.bitsPerPixel = bitsPerPixel;
     GeneralThreadData *threadData = malloc(nthreads *sizeof(GeneralThreadData));
     
-    
-    int i;
-    greyval_t *outRef =  malloc(img.size*sizeof(greyval_t));	
-    for(i = 0; i < nthreads; i++) {
-       threadData[i].gval = gval; 
-       threadData[i].nthreads = nthreads;
-       threadData[i].img = img;
-       threadData[i].outRef = outRef;
-    }
-
-    
     printf("Command: %s\n", argv[0]);
-    printf("Filtering image '%s' using attribute area with lambda=%f.\n", imgfname, lambda);
+    printf("Filtering image '%s' using attribute %s with lambda=%f.\n", imgfname, Attribs[attrib].Name, lambda);
     printf("FreeImage version: %s\n", FreeImage_GetVersion());
     printf("Image: Width=%ld Height=%ld Depth=%ld Size=%ld Size2D=%ld. ", img.width, img.height, img.depth, img.size, img.size2D);
     printf("nthreads for sorting and quantize the max tree: %d.\n", nthreads);
@@ -105,10 +99,8 @@ int main (int argc, char *argv[])
     timings.start_sort = times(&timings.tstruct);    
     // run radix sort
     pixel_t *SORTED = RunRadixSortUnsigned(abs((int)ceil((double)bitsPerPixel/(16))), img, gval, nthreads);	
-    for(i = 0; i < nthreads; i++) {
-       threadData[i].SORTED = SORTED;
-    }
-	timings.end_sort = times(&timings.tstruct);  
+    InitializeThreadData(gval, SORTED, nthreads, img, threadData, lambda, attrib);
+    timings.end_sort = times(&timings.tstruct);  
     
     /******************************************************************/     
     printf("/*** Calculate the quantized image ***/\n");
@@ -138,13 +130,20 @@ int main (int argc, char *argv[])
     /******************************************************************/
 	printf("Init filtering\n");   
     timings.start_filt = times(&timings.tstruct);
-    Filter(threadData, lambda);      
+   // Filter(threadData, lambda);      
+    ParallelFilter(nthreads, threadData);
     timings.end_filt = times(&timings.tstruct);
     printf("End filtering\n");
     /******************************************************************/ 	
     printTimings(timings);
 	
-	/**** Write output image   ****/   
+    /**** Write output image   ****/   
+    
+    if(!is3D) {
+        img.height = img.depth;
+        img.depth = 1;
+    }
+    
 
     WriteFITS3D(outfname, imgfname, threadData->outRef, img);
     printf("Image written to '%s'\n", outfname);

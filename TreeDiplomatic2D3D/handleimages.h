@@ -1,8 +1,13 @@
 #ifndef _HANDLEIMAGES_H
 #define _HANDLEIMAGES_H
 
+#include <FreeImage.h>
+#include <fitsio.h>
+#include <math.h>
+#include "TreeDiplomatic.h"
+
 FIBITMAP* GenericLoader(const char* lpszPathName, int flag);
-void ReadFITS(char *filename);
+greyval_t *ReadFITS(char *filename, ImageProperties *img);
 greyval_t FindMin(greyval_t *gvalues);
 greyval_t FindMax(greyval_t *gval);
 short ReadTIFF(char *fname);

@@ -1,5 +1,8 @@
-#include "TreeDiplomatic.h"
 #include "handleimages.h"
+
+
+
+/*************************************************************************************************************************************/
 
 /****** Image read/write functions ******************************/
 /** Generic image loader
@@ -31,61 +34,63 @@ FIBITMAP* GenericLoader(const char* lpszPathName, int flag)
 }
 
 
-// void ReadFITS(char *filename)
-// {
-//     fitsfile *fptr;   /* FITS file pointer, defined in fitsio.h */
-//     int status = 0;   /* CFITSIO status value MUST be initialized to zero! */
-//     int bitpix, naxis;
-//     long naxes[2] = {1,1}, fpixel[2] = {1,1};
-//     greyval_t *CURRENT;
-//     
-//     if (!fits_open_file(&fptr, filename, READONLY, &status))
-//     {
-//         if (!fits_get_img_param(fptr, 2, &bitpix, &naxis, naxes, &status) )
-//         {
-//             if (naxis > 2 || naxis == 0)
-//                 printf("Error: only 1D or 2D images are supported\n");
-//             else
-//             {
-//                 width = naxes[0];
-//                 depth = naxes[1];
-//                 height = 1;
-//                 size = naxes[0]*naxes[1];
-// 
-//                 // change to greyval_t format
-//                 gval = (greyval_t *) malloc(naxes[0]*naxes[1] * sizeof(greyval_t));
-//                 CURRENT = gval;
-// 
-//                 if (CURRENT == NULL)
-//                 {
-//                     printf("Memory allocation error\n");
-//                     return;
-//                 }
-// 
-//                 /* TUSHORT here is correct since greyval_t has type 'unsigned short', otherwise it must be changed */
-//                 fits_read_pix(fptr, TUSHORT, fpixel, naxes[0]*naxes[1], NULL, CURRENT, NULL, &status);
-//                 //fits_read_pix(fptr, Tlong, fpixel, naxes[0]*naxes[1], NULL, CURRENT, NULL, &status);
-//                 
-//                 /*int ii; for (ii = 0; ii < naxes[0]*naxes[1]; ii++)
-//                    printf("%d ", CURRENT[ii]);
-//                 printf("\n");
-//                 */
-//             }
-//         }
-//         fits_close_file(fptr, &status);
-//     }
-//     printf("\nHere. Statistics of %ld x %ld  image. Bits per pixel=%d.\n", naxes[0], naxes[1], bitpix);
-//     
-//     /**
-//     bitpix variable can assume:
-//     BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
-//     SHORT_IMG  =  16   (16 bit integer pixels)
-//     LONG_IMG   =  32   (32-bit integer pixels)
-//     FLOAT_IMG  = -32   (32-bit floating point pixels)
-//     DOUBLE_IMG = -64   (64-bit floating point pixels)
-//     **/
-//     return;
-// }
+greyval_t *ReadFITS(char *filename, ImageProperties *img)
+{
+    fitsfile *fptr;   /* FITS file pointer, defined in fitsio.h */
+    int status = 0;   /* CFITSIO status value MUST be initialized to zero! */
+    int bitpix, naxis;
+    long naxes[2] = {1,1}, fpixel[2] = {1,1};
+    greyval_t *CURRENT, *gval;
+    
+    if (!fits_open_file(&fptr, filename, READONLY, &status))
+    {
+        if (!fits_get_img_param(fptr, 2, &bitpix, &naxis, naxes, &status) )
+        {
+            if (naxis > 2 || naxis == 0) {
+                printf("Error: only 1D or 2D images are supported\n");
+                exit(-1);
+            }
+            else
+            {
+                (*img).width = naxes[0];
+                (*img).height = naxes[1];
+                (*img).depth = 1;
+                (*img).size = naxes[0]*naxes[1];
+
+                // change to greyval_t format
+                greyval_t *gval = (greyval_t *) malloc(naxes[0]*naxes[1] * sizeof(greyval_t));
+                CURRENT = gval;
+
+                if (CURRENT == NULL)
+                {
+                    printf("Memory allocation error\n");
+                    exit(-1);
+                }
+
+                /* TUSHORT here is correct since greyval_t has type 'unsigned short', otherwise it must be changed */
+                fits_read_pix(fptr, TUSHORT, fpixel, naxes[0]*naxes[1], NULL, CURRENT, NULL, &status);
+                //fits_read_pix(fptr, Tlong, fpixel, naxes[0]*naxes[1], NULL, CURRENT, NULL, &status);
+                
+                /*int ii; for (ii = 0; ii < naxes[0]*naxes[1]; ii++)
+                   printf("%d ", CURRENT[ii]);
+                printf("\n");
+                */
+            }
+        }
+        fits_close_file(fptr, &status);
+    }
+    printf("\nHere. Statistics of %ld x %ld  image. Bits per pixel=%d.\n", naxes[0], naxes[1], bitpix);
+    
+    /**
+    bitpix variable can assume:
+    BYTE_IMG   =   8   ( 8-bit byte pixels, 0 - 255)
+    SHORT_IMG  =  16   (16 bit integer pixels)
+    LONG_IMG   =  32   (32-bit integer pixels)
+    FLOAT_IMG  = -32   (32-bit floating point pixels)
+    DOUBLE_IMG = -64   (64-bit floating point pixels)
+    **/
+    return gval;
+}
 
 // greyval_t FindMax(greyval_t *gval)
 // {
